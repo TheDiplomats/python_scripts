@@ -1,21 +1,77 @@
-import socket
+from socket import *
+from threading import *
+import optparse
 
-target_host = "localhost"
-#target_host = "www.google.com"
-target_port = 5555
 
-# create socket object
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+screenlock = Semaphore(value=1)
 
-# connect to the client
-client.connect((target_host, target_port))
 
-# send data
-#client.send(b"GET / HTTP/1.1\r\nHost: google.com\r\n\r\n")
-client.send(b"echo Hello!")
+def initialize(host, ports, data):
+	try:
+		tgtIP = gethostbyname(host)
+	except:
+		print('[!] Cannot resolve "%s": Unknown host' % host)
+		return
+	try:
+		tgtName = gethostbyaddr(tgtIP)
+		print('\n[*] Attempting to connect to : ' + tgtName[0])
+	except:
+		print('\n[*] Attempting to connect to : ' + tgtIP)
+	setdefaulttimeout(1)
+	for port in ports:
+		t = Thread(target=connect, args=(host, int(port), bytes(data)))
+		t.start()
+	
 
-# receive data
-response = client.recv(4096)
 
-print(response)
-client.close()
+def connect(host, port, data):
+	setup = '*\r\n'
+	#setup = 'POST / HTTP/1.1\r\nHost: google.com\r\n\r\n'
+	payload = bytes(setup + data)
+	try:
+		client = socket(AF_INET, SOCK_STREAM)
+		client.connect((host, port))
+		client.send(payload)
+		response = client.recv(4096)
+		screenlock.acquire()
+		print('[*] Sending payload: ' + data)
+		print('[*] tcp/port %d open:' % port)
+		print(str(response))
+		
+	except:
+		screenlock.acquire()
+		print('[*] tcp/port %d closed' % port)
+	finally:
+		screenlock.release()
+		client.close()
+	
+	
+def main():
+	parser = optparse.OptionParser('usage: tcp_client.py '+\
+		'-H <target host> -p <target port> -d <data payload>')
+	parser.add_option('-H', dest='tgtHost', type='string', \
+		help='Specify target host')
+	parser.add_option('-p', dest='tgtPort', type='string', \
+		help='Specify target port(s) seperated by comma, no spaces')
+	parser.add_option('-d', dest='tgtData', type='string', \
+		help='Specify data to send')
+	
+	(options, args) = parser.parse_args()
+	
+	tgtHost = options.tgtHost
+	tgtPorts = str(options.tgtPort).split(',')
+	tgtData = options.tgtData
+	
+	if(tgtHost == None) | (tgtPorts[0] == None):
+		print('[!] You must specify at least host and port')
+		print(parser.usage)
+		exit(0)
+	if tgtData == None:
+		tgtData = 'ACK'
+		
+	setdefaulttimeout(1)
+	initialize(tgtHost, tgtPorts, tgtData)
+	
+
+if __name__ == '__main__':
+	main()
