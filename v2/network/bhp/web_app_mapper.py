@@ -5,7 +5,7 @@ import urllib2
 
 threads = 10
 
-target = 'http://cjwrightxxx.com'
+target = 'http://testphp.vulnweb.com'
 directory = '/Users/haunt/Documents/workspace/wordpress'
 filters = ['.jpg', '.gif', '.png', '.css']
 
